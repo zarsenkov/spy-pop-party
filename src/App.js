@@ -1,132 +1,92 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, Ghost, MapPin, Play, RefreshCw, X } from 'lucide-react';
+import { Eye, EyeOff, ShieldCheck, UserSearch, Camera } from 'lucide-react';
 
-// --- БАЗА ЛОКАЦИЙ ДЛЯ ВЕЧЕРИНКИ ---
-const LOCATIONS = ["Аквапарк", "Ночной клуб", "Музей", "Корабль", "Пиццерия", "Луна-парк", "Киностудия", "Отель", "Джунгли", "Орбитальная станция"];
+// --- СПИСОК ЛОКАЦИЙ ---
+const LOCATIONS = ["Орбитальная станция", "Овощебаза", "Подводная лодка", "Киностудия", "Партизанский отряд", "Цирк-шапито", "Выставка кошек"];
 
 export default function App() {
-  const [screen, setScreen] = useState('setup'); // setup, reveal, play
-  const [players, setPlayers] = useState([]);
-  const [name, setName] = useState('');
-  const [spyIndex, setSpyIndex] = useState(null);
-  const [location, setLocation] = useState('');
-  const [revealingIndex, setRevealingIndex] = useState(0);
-  const [isCardOpen, setIsCardOpen] = useState(false);
+  const [playersCount, setPlayersCount] = useState(3); // Кол-во игроков
+  const [gameStarted, setGameStarted] = useState(false); // Статус игры
+  const [roles, setRoles] = useState([]); // Массив распределенных ролей
+  const [currentPlayer, setCurrentPlayer] = useState(0); // Индекс текущего игрока
+  const [showRole, setShowRole] = useState(false); // Видимость роли на экране
 
-  // --- ДОБАВИТЬ ИГРОКА ---
-  const addPlayer = () => {
-    if (name.trim() && players.length < 12) {
-      setPlayers([...players, name.trim()]);
-      setName('');
-    }
-  };
-
-  // --- НАЧАТЬ ИГРУ ---
-  const initGame = () => {
-    if (players.length < 3) return alert("Нужно хотя бы 3 друга!");
-    setSpyIndex(Math.floor(Math.random() * players.length));
-    setLocation(LOCATIONS[Math.floor(Math.random() * LOCATIONS.length)]);
-    setScreen('reveal');
+  // --- ФУНКЦИЯ СТАРТА ИГРЫ ---
+  // Перемешивает роли и назначает шпиона
+  const startGame = () => {
+    const location = LOCATIONS[Math.floor(Math.random() * LOCATIONS.length)];
+    const spyIndex = Math.floor(Math.random() * playersCount);
+    
+    const newRoles = Array.from({ length: playersCount }, (_, i) => 
+      i === spyIndex ? "ТЫ ШПИОН" : location
+    );
+    
+    setRoles(newRoles);
+    setGameStarted(true);
+    setCurrentPlayer(0);
+    setShowRole(false);
   };
 
   // --- СЛЕДУЮЩИЙ ИГРОК ---
   const nextPlayer = () => {
-    if (revealingIndex < players.length - 1) {
-      setRevealingIndex(revealingIndex + 1);
-      setIsCardOpen(false);
+    setShowRole(false);
+    if (currentPlayer < playersCount - 1) {
+      setCurrentPlayer(currentPlayer + 1);
     } else {
-      setScreen('play');
+      setGameStarted(false); // Конец раздачи
     }
   };
 
+  // Экран настроек
+  if (!gameStarted) {
+    return (
+      <div className="monitor">
+        <div className="info-bar"><span>SYSTEM: READY</span> <Camera size={14}/></div>
+        <div className="role-display setup-screen">
+          <UserSearch size={48} />
+          <h2>КОЛИЧЕСТВО АГЕНТОВ</h2>
+          <input 
+            type="number" 
+            value={playersCount} 
+            onChange={(e) => setPlayersCount(Math.max(3, e.target.value))}
+          />
+          <button onClick={startGame}>ИНИЦИИРОВАТЬ СЕАНС</button>
+        </div>
+      </div>
+    );
+  }
+
+  // Экран раздачи ролей
   return (
-    <div style={styles.container}>
-      <AnimatePresence mode="wait">
-        
-        {/* ЭКРАН 1: СБОР КОМАНДЫ */}
-        {screen === 'setup' && (
-          <motion.div key="1" initial={{scale: 0.8}} animate={{scale: 1}} style={styles.card}>
-            <h1 style={styles.header}>SPY<br/><span style={{color: '#FF5E78'}}>PARTY</span></h1>
-            <div style={styles.inputWrap}>
-              <input 
-                style={styles.input} 
-                placeholder="ИМЯ..." 
-                value={name} 
-                onChange={e => setName(e.target.value)}
-              />
-              <button style={styles.addBtn} onClick={addPlayer}><UserPlus color="white"/></button>
+    <div className="monitor">
+      <div className="info-bar">
+        <div className="rec-indicator">● REC</div>
+        <span>OBJECT: {currentPlayer + 1} / {playersCount}</span>
+      </div>
+
+      <div className="role-display">
+        {!showRole ? (
+          <>
+            <div className="role-card">
+              <p>ПЕРЕДАЙТЕ ТЕЛЕФОН ИГРОКУ №{currentPlayer + 1}</p>
             </div>
-            <div style={styles.list}>
-              {players.map((p, i) => (
-                <div key={i} style={styles.tag}>{p} <X size={14} onClick={() => setPlayers(players.filter((_, idx) => idx !== i))}/></div>
-              ))}
+            <button onClick={() => setShowRole(true)}> <Eye size={18}/> ПОСМОТРЕТЬ</button>
+          </>
+        ) : (
+          <>
+            <div className="role-card" style={{borderColor: roles[currentPlayer] === "ТЫ ШПИОН" ? "#ff0000" : "#fff"}}>
+              <h1 style={{fontSize: '1rem'}}>ВАША ЛОКАЦИЯ:</h1>
+              <p style={{fontSize: '1.5rem', fontWeight: 800}}>{roles[currentPlayer]}</p>
             </div>
-            {players.length >= 3 && <button className="pop-button" style={styles.mainBtn} onClick={initGame}>ПОЕХАЛИ! <Play fill="white" size={16}/></button>}
-          </motion.div>
+            <button onClick={nextPlayer}> <EyeOff size={18}/> СКРЫТЬ И ПЕРЕДАТЬ</button>
+          </>
         )}
+      </div>
 
-        {/* ЭКРАН 2: КТО ТЫ? */}
-        {screen === 'reveal' && (
-          <motion.div key="2" initial={{x: 100}} animate={{x: 0}} style={styles.card}>
-            <p style={styles.infoText}>ПЕРЕДАЙ ТЕЛЕФОН:</p>
-            <h2 style={styles.nameTitle}>{players[revealingIndex]}</h2>
-            
-            <div style={{...styles.secretBox, background: isCardOpen ? '#FFF' : '#2D3436'}} onClick={() => setIsCardOpen(true)}>
-              {isCardOpen ? (
-                <motion.div initial={{opacity: 0}} animate={{opacity: 1}}>
-                  {revealingIndex === spyIndex ? (
-                    <div style={{color: '#FF5E78'}}>
-                      <Ghost size={60} />
-                      <h3>ТЫ ШПИОН!</h3>
-                      <p>Твоя задача: не выдать себя.</p>
-                    </div>
-                  ) : (
-                    <div style={{color: '#00B894'}}>
-                      <MapPin size={60} />
-                      <h3>ТЫ В ТЕМЕ</h3>
-                      <p>Локация: <b>{location}</b></p>
-                    </div>
-                  )}
-                </motion.div>
-              ) : (
-                <p style={{color: 'white'}}>ТКНИ, ЧТОБЫ УЗНАТЬ</p>
-              )}
-            </div>
-
-            {isCardOpen && <button className="pop-button" style={styles.mainBtn} onClick={nextPlayer}>ПОНЯЛ, СЛЕДУЮЩИЙ</button>}
-          </motion.div>
-        )}
-
-        {/* ЭКРАН 3: ИГРА */}
-        {screen === 'play' && (
-          <motion.div key="3" initial={{y: 50}} animate={{y: 0}} style={styles.card}>
-            <h2 style={styles.header}>ИГРА<br/>ИДЕТ!</h2>
-            <p style={styles.infoText}>Задавайте друг другу вопросы. <br/> Шпион должен угадать локацию!</p>
-            <div style={styles.list}>
-               {players.map((p, i) => <div key={i} style={styles.tag}>{p}</div>)}
-            </div>
-            <button className="pop-button" style={{...styles.mainBtn, background: '#00B894'}} onClick={() => window.location.reload()}>ЗАКОНЧИТЬ <RefreshCw size={16}/></button>
-          </motion.div>
-        )}
-
-      </AnimatePresence>
+      <div className="info-bar" style={{border: 'none', borderTop: '1px solid #333', marginTop: '20px', paddingTop: '10px'}}>
+        <span>SECURE_CONNECTION: 100%</span>
+        <span> <ShieldCheck size={14}/> </span>
+      </div>
     </div>
   );
 }
-
-// --- СТИЛИ POP-RETRO ---
-const styles = {
-  container: { height: '100dvh', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' },
-  card: { background: '#FFF', border: '4px solid #2D3436', boxShadow: '12px 12px 0px #2D3436', width: '100%', maxWidth: '360px', padding: '30px', borderRadius: '40px', textAlign: 'center' },
-  header: { fontFamily: 'Rubik Mono One', fontSize: '30px', lineHeight: '1', marginBottom: '20px' },
-  inputWrap: { display: 'flex', gap: '10px', marginBottom: '20px' },
-  input: { flex: 1, border: '3px solid #2D3436', borderRadius: '15px', padding: '12px', fontSize: '16px', fontWeight: '900', outline: 'none' },
-  addBtn: { background: '#2D3436', border: 'none', borderRadius: '15px', width: '50px', cursor: 'pointer' },
-  list: { display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginBottom: '20px' },
-  tag: { background: '#FFFAED', border: '2px solid #2D3436', padding: '6px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '5px' },
-  mainBtn: { width: '100%', border: '4px solid #2D3436', padding: '18px', borderRadius: '20px', color: 'white', fontWeight: '900', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' },
-  infoText: { fontSize: '12px', fontWeight: '700', opacity: 0.6, textTransform: 'uppercase', marginBottom: '10px' },
-  nameTitle: { fontSize: '32px', marginBottom: '20px' },
-  secretBox: { height: '200px', borderRadius: '30px', border: '4px dashed #2D3436', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px', cursor: 'pointer', padding: '20px' }
-};
